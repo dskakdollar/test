@@ -47,6 +47,8 @@ export function createPage(input: {
   name?: string;
   sourceUrl?: string;
   html: string;
+  zipPath?: string | null;
+  zipFilename?: string | null;
 }): ConnectedPage {
   const id = newId("page");
   const now = new Date().toISOString();
@@ -68,5 +70,7 @@ export function createPage(input: {
     ],
     createdAt: now,
     updatedAt: now,
+    zipPath: input.zipPath ?? null,
+    zipFilename: input.zipFilename ?? null,
   };
 }

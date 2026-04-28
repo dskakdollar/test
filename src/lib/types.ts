@@ -16,6 +16,8 @@ export type ConnectedPage = {
   versions: Version[];
   createdAt: string;
   updatedAt: string;
+  zipPath?: string | null;
+  zipFilename?: string | null;
 };
 
 export type Database = {

@@ -12,6 +12,13 @@ import {
   resetPages,
 } from "@/lib/client-storage";
 import { newId } from "@/lib/id";
+import {
+  readZipPages,
+  repackageZip,
+  downloadBlob,
+  type ZipPageEntry,
+} from "@/lib/zip-helpers";
+import { putZip, getZip, deleteZip } from "@/lib/zip-store";
 
 type ConnectFormState = {
   name: string;
@@ -54,11 +61,17 @@ export default function AppPage() {
   const [applying, setApplying] = useState(false);
   const [previewMode, setPreviewMode] = useState<"after" | "before">("after");
   const [showConnect, setShowConnect] = useState(false);
+  const [connectMode, setConnectMode] = useState<"html" | "zip">("html");
   const [connectForm, setConnectForm] = useState<ConnectFormState>({
     name: "",
     sourceUrl: "",
     html: "",
   });
+  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [zipEntries, setZipEntries] = useState<ZipPageEntry[]>([]);
+  const [zipParsing, setZipParsing] = useState(false);
+  const [zipError, setZipError] = useState<string | null>(null);
+  const [downloadingZip, setDownloadingZip] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [successSummary, setSuccessSummary] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -216,7 +229,16 @@ export default function AppPage() {
     [selected, updatePage, showToast]
   );
 
-  const handleConnect = useCallback(() => {
+  const closeConnectModal = useCallback(() => {
+    setShowConnect(false);
+    setConnectMode("html");
+    setConnectForm({ name: "", sourceUrl: "", html: "" });
+    setZipFile(null);
+    setZipEntries([]);
+    setZipError(null);
+  }, []);
+
+  const handleConnectHtml = useCallback(() => {
     if (!connectForm.html.trim()) {
       showToast("Вставьте HTML страницы");
       return;
@@ -224,10 +246,79 @@ export default function AppPage() {
     const created = createPage(connectForm);
     persist((prev) => [created, ...prev]);
     setSelectedId(created.id);
-    setShowConnect(false);
-    setConnectForm({ name: "", sourceUrl: "", html: "" });
+    closeConnectModal();
     showToast("Страница подключена");
-  }, [connectForm, persist, showToast]);
+  }, [connectForm, persist, showToast, closeConnectModal]);
+
+  const handleZipUpload = useCallback(async (file: File) => {
+    setZipFile(file);
+    setZipError(null);
+    setZipParsing(true);
+    try {
+      const { entries } = await readZipPages(file);
+      if (entries.length === 0) {
+        setZipError("В архиве не найдено .html файлов");
+        setZipEntries([]);
+      } else {
+        setZipEntries(entries);
+      }
+    } catch (e) {
+      setZipError("Не удалось прочитать ZIP. Проверьте, что это валидный архив.");
+      setZipEntries([]);
+    } finally {
+      setZipParsing(false);
+    }
+  }, []);
+
+  const handleConnectZipEntry = useCallback(
+    async (entry: ZipPageEntry) => {
+      if (!zipFile) return;
+      const baseName = zipFile.name.replace(/\.zip$/i, "");
+      const created = createPage({
+        name: connectForm.name || `${baseName} · ${entry.name}`,
+        sourceUrl: connectForm.sourceUrl,
+        html: entry.html,
+        zipPath: entry.path,
+        zipFilename: zipFile.name,
+      });
+      try {
+        await putZip(created.id, zipFile);
+      } catch (e) {
+        showToast("Не удалось сохранить ZIP в браузере");
+        return;
+      }
+      persist((prev) => [created, ...prev]);
+      setSelectedId(created.id);
+      closeConnectModal();
+      showToast("Страница из ZIP подключена");
+    },
+    [zipFile, connectForm, persist, closeConnectModal, showToast]
+  );
+
+  const handleDownloadZip = useCallback(async () => {
+    if (!selected || !selected.zipPath) return;
+    setDownloadingZip(true);
+    try {
+      const original = await getZip(selected.id);
+      if (!original) {
+        showToast("Оригинальный ZIP не найден — переподключите страницу");
+        return;
+      }
+      const newZip = await repackageZip(
+        original,
+        selected.zipPath,
+        selected.publishedHtml
+      );
+      const baseName =
+        selected.zipFilename?.replace(/\.zip$/i, "") || "tilda-export";
+      downloadBlob(newZip, `${baseName}-edited.zip`);
+      showToast("ZIP сформирован — загрузка началась");
+    } catch (e) {
+      showToast("Не удалось собрать ZIP");
+    } finally {
+      setDownloadingZip(false);
+    }
+  }, [selected, showToast]);
 
   const handleResetDemo = useCallback(() => {
     const seeded = sortPages(resetPages());
@@ -341,7 +432,9 @@ export default function AppPage() {
                 <div>
                   <h1>{selected.name}</h1>
                   <div className="page-source">
-                    {selected.sourceUrl ?? "локальный HTML · без источника"}
+                    {selected.zipPath
+                      ? `📦 ${selected.zipFilename ?? "ZIP"} · ${selected.zipPath}`
+                      : selected.sourceUrl ?? "локальный HTML · без источника"}
                   </div>
                 </div>
                 <div className="page-actions">
@@ -356,7 +449,25 @@ export default function AppPage() {
                       </button>
                     </>
                   ) : (
-                    <span className="page-status">опубликовано</span>
+                    <>
+                      <span className="page-status">опубликовано</span>
+                      {selected.zipPath && (
+                        <button
+                          className="btn btn-ghost"
+                          onClick={handleDownloadZip}
+                          disabled={downloadingZip}
+                          title="Скачать обновлённый ZIP для импорта в Тильду"
+                        >
+                          {downloadingZip ? (
+                            <>
+                              <span className="spinner" /> Собираю…
+                            </>
+                          ) : (
+                            "📦 Скачать ZIP"
+                          )}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -494,17 +605,33 @@ export default function AppPage() {
       </div>
 
       {showConnect && (
-        <div className="modal-backdrop" onClick={() => setShowConnect(false)}>
+        <div className="modal-backdrop" onClick={closeConnectModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2>
               Подключить <em>страницу</em>
             </h2>
             <p className="modal-sub">
-              Вставь HTML опубликованной Tilda-страницы. Можно указать ссылку — она
-              сохранится как метка источника.
+              Загрузи Tilda-export ZIP (рекомендуется — потом скачаешь обратно в
+              Тильду) или вставь HTML отдельной страницы.
             </p>
+
+            <div className="connect-tabs">
+              <button
+                className={`connect-tab ${connectMode === "zip" ? "active" : ""}`}
+                onClick={() => setConnectMode("zip")}
+              >
+                📦 Tilda ZIP
+              </button>
+              <button
+                className={`connect-tab ${connectMode === "html" ? "active" : ""}`}
+                onClick={() => setConnectMode("html")}
+              >
+                {"</>"} HTML
+              </button>
+            </div>
+
             <div className="field">
-              <label>Название (для удобства)</label>
+              <label>Название (опц.)</label>
               <input
                 type="text"
                 placeholder="Лендинг клиента ABC"
@@ -514,38 +641,107 @@ export default function AppPage() {
                 }
               />
             </div>
-            <div className="field">
-              <label>Ссылка на опубликованную страницу (опц.)</label>
-              <input
-                type="url"
-                placeholder="https://my-client.tilda.ws/pricing"
-                value={connectForm.sourceUrl}
-                onChange={(e) =>
-                  setConnectForm({ ...connectForm, sourceUrl: e.target.value })
-                }
-              />
-            </div>
-            <div className="field">
-              <label>HTML страницы *</label>
-              <textarea
-                placeholder="<!DOCTYPE html>..."
-                value={connectForm.html}
-                onChange={(e) =>
-                  setConnectForm({ ...connectForm, html: e.target.value })
-                }
-              />
-            </div>
-            <div className="modal-actions">
-              <button
-                className="btn btn-ghost"
-                onClick={() => setShowConnect(false)}
-              >
-                Отмена
-              </button>
-              <button className="btn btn-primary" onClick={handleConnect}>
-                Подключить →
-              </button>
-            </div>
+
+            {connectMode === "html" ? (
+              <>
+                <div className="field">
+                  <label>Ссылка на опубликованную страницу (опц.)</label>
+                  <input
+                    type="url"
+                    placeholder="https://my-client.tilda.ws/pricing"
+                    value={connectForm.sourceUrl}
+                    onChange={(e) =>
+                      setConnectForm({ ...connectForm, sourceUrl: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label>HTML страницы *</label>
+                  <textarea
+                    placeholder="<!DOCTYPE html>..."
+                    value={connectForm.html}
+                    onChange={(e) =>
+                      setConnectForm({ ...connectForm, html: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="modal-actions">
+                  <button className="btn btn-ghost" onClick={closeConnectModal}>
+                    Отмена
+                  </button>
+                  <button className="btn btn-primary" onClick={handleConnectHtml}>
+                    Подключить →
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="field">
+                  <label>Tilda Export ZIP *</label>
+                  <label className="zip-drop">
+                    <input
+                      type="file"
+                      accept=".zip,application/zip"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleZipUpload(f);
+                      }}
+                    />
+                    {zipFile ? (
+                      <span>
+                        📦 {zipFile.name}
+                        <span className="zip-meta">
+                          {(zipFile.size / 1024).toFixed(0)} KB
+                        </span>
+                      </span>
+                    ) : (
+                      <span>
+                        Перетащи или выбери .zip
+                        <span className="zip-hint">
+                          В Тильде: Сайт → Экспорт → Скачать ZIP
+                        </span>
+                      </span>
+                    )}
+                  </label>
+                </div>
+
+                {zipParsing && (
+                  <div className="zip-status">
+                    <span className="spinner" /> Распаковываю архив…
+                  </div>
+                )}
+                {zipError && <div className="zip-error">{zipError}</div>}
+
+                {zipEntries.length > 0 && (
+                  <div className="field">
+                    <label>
+                      Найдено страниц: {zipEntries.length}. Выбери, какую подключить:
+                    </label>
+                    <div className="zip-entry-list">
+                      {zipEntries.map((entry) => (
+                        <button
+                          key={entry.path}
+                          className="zip-entry"
+                          onClick={() => handleConnectZipEntry(entry)}
+                        >
+                          <div className="zip-entry-name">{entry.name}</div>
+                          <div className="zip-entry-meta">
+                            {entry.path} · {(entry.size / 1024).toFixed(1)} KB
+                          </div>
+                          <span className="zip-entry-arrow">→</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="modal-actions">
+                  <button className="btn btn-ghost" onClick={closeConnectModal}>
+                    Отмена
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
