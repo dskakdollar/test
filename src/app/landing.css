@@ -789,3 +789,150 @@
   opacity: 1;
   transform: translateY(0);
 }
+
+/* ================================================ */
+/* === RESPONSIVE — TABLET (≤1024px)            === */
+/* ================================================ */
+@media (max-width: 1024px) {
+  .landing-root .container { padding: 0 24px; }
+  .landing-root section { padding: 100px 0; }
+  .landing-root .hero { padding: 140px 0 70px; }
+  .landing-root .hero-grid { gap: 48px; }
+  .landing-root .demo { margin-top: 60px; }
+  .landing-root .core-job { gap: 36px; }
+}
+
+/* ================================================ */
+/* === RESPONSIVE — MOBILE (≤768px)             === */
+/* ================================================ */
+@media (max-width: 768px) {
+  .landing-nav-wrap { padding: 14px 20px; }
+  .landing-logo { font-size: 22px; }
+  .landing-nav-cta { padding: 9px 16px; font-size: 11px; }
+
+  .landing-root .container { padding: 0 20px; }
+  .landing-root section { padding: 70px 0; }
+
+  /* Hero: stack columns */
+  .landing-root .hero { padding: 110px 0 50px; }
+  .landing-root .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+  .landing-root h1 { font-size: clamp(36px, 10vw, 56px); }
+  .landing-root .hero-side {
+    border-left: none;
+    border-top: 1px solid var(--line);
+    padding-left: 0;
+    padding-top: 32px;
+  }
+  .landing-root .micro-jobs li { font-size: 15px; }
+  .landing-root .cta-primary {
+    padding: 18px 24px;
+    font-size: 16px;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* Demo card: stack panels */
+  .landing-root .demo { margin-top: 50px; border-radius: 16px; }
+  .landing-root .demo-body { grid-template-columns: 1fr; }
+  .landing-root .demo-input {
+    padding: 24px 22px;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .landing-root .demo-output { padding: 24px 22px; }
+  .landing-root .demo-prompt { font-size: 14px; }
+  .landing-root .demo-status {
+    position: static;
+    margin-top: 8px;
+  }
+  .landing-root .price-card { padding: 14px 18px; }
+  .landing-root .price-card .price { font-size: 24px; }
+  .landing-root .demo-url { font-size: 11px; }
+
+  /* Section titles */
+  .landing-root .section-title {
+    font-size: clamp(28px, 7.5vw, 44px);
+    margin-bottom: 36px;
+    max-width: none;
+  }
+  .landing-root .section-num { margin-bottom: 20px; font-size: 11px; }
+
+  /* AHA cards */
+  .landing-root .aha-grid { grid-template-columns: 1fr; gap: 20px; }
+  .landing-root .aha-card { padding: 32px 24px; border-radius: 14px; }
+  .landing-root .aha-card h3 { font-size: 22px; }
+  .landing-root .aha-card p { font-size: 15px; }
+
+  /* Value grid */
+  .landing-root .values { grid-template-columns: 1fr; }
+  .landing-root .value { padding: 36px 26px; }
+  .landing-root .value-num { font-size: 48px; margin-bottom: 16px; }
+  .landing-root .value h3 { font-size: 19px; }
+  .landing-root .value p { font-size: 14px; }
+
+  /* Recognize */
+  .landing-root .recognize-title {
+    font-size: clamp(32px, 8.5vw, 52px);
+    margin-bottom: 48px;
+    max-width: none;
+  }
+  .landing-root .triggers { grid-template-columns: 1fr; }
+  .landing-root .trigger {
+    padding: 22px 0 !important;
+    border-left: none !important;
+    font-size: 17px;
+  }
+  .landing-root .trigger:nth-last-child(-n+2) { border-bottom: none; }
+  .landing-root .trigger:last-child { border-bottom: 1px solid var(--line); }
+
+  /* Core jobs */
+  .landing-root .core-jobs { gap: 60px; }
+  .landing-root .core-job,
+  .landing-root .core-job:nth-child(even) {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .landing-root .core-job:nth-child(even) .core-job-text { order: 0; }
+  .landing-root .core-job:nth-child(even) .core-job-list { order: 0; }
+  .landing-root .core-job-text h3 { font-size: 28px; }
+  .landing-root .core-job-list li { font-size: 15px; }
+  .landing-root .core-job-list li span { font-size: 14px; }
+
+  /* Arrival */
+  .landing-root .arrival-grid { grid-template-columns: 1fr; gap: 40px; }
+  .landing-root .arrival li { font-size: 19px; }
+
+  /* Doubts */
+  .landing-root .doubt-q { font-size: 18px; }
+  .landing-root .doubt-toggle { width: 36px; height: 36px; font-size: 18px; }
+
+  /* Competitors */
+  .landing-root .comp {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 26px 22px;
+  }
+  .landing-root .comp-name { font-size: 22px; }
+  .landing-root .comp-why { font-size: 14px; }
+  .landing-root .comp-stamp { justify-self: start; }
+  .landing-root .comp:hover { transform: none; }
+
+  /* Final CTA */
+  .landing-root .final { padding: 120px 0; }
+  .landing-root .final-title { font-size: clamp(40px, 10vw, 72px); margin-bottom: 36px; }
+  .landing-root .cta-final { padding: 22px 32px; font-size: 17px; }
+}
+
+/* ================================================ */
+/* === RESPONSIVE — SMALL MOBILE (≤420px)       === */
+/* ================================================ */
+@media (max-width: 420px) {
+  .landing-root .container { padding: 0 16px; }
+  .landing-root section { padding: 56px 0; }
+  .landing-root .hero { padding: 100px 0 40px; }
+  .landing-root .demo-input,
+  .landing-root .demo-output { padding: 20px 18px; }
+  .landing-root .aha-card,
+  .landing-root .value,
+  .landing-root .comp { padding: 26px 20px; }
+}

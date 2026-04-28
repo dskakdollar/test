@@ -72,6 +72,7 @@ export default function AppPage() {
   const [zipParsing, setZipParsing] = useState(false);
   const [zipError, setZipError] = useState<string | null>(null);
   const [downloadingZip, setDownloadingZip] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [successSummary, setSuccessSummary] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -251,6 +252,13 @@ export default function AppPage() {
   }, [connectForm, persist, showToast, closeConnectModal]);
 
   const handleZipUpload = useCallback(async (file: File) => {
+    const MAX_ZIP_SIZE = 50 * 1024 * 1024;
+    if (file.size > MAX_ZIP_SIZE) {
+      setZipError("ZIP больше 50 МБ — слишком тяжёлый для браузера. Уменьшите архив.");
+      setZipEntries([]);
+      setZipFile(null);
+      return;
+    }
     setZipFile(file);
     setZipError(null);
     setZipParsing(true);
@@ -259,10 +267,13 @@ export default function AppPage() {
       if (entries.length === 0) {
         setZipError("В архиве не найдено .html файлов");
         setZipEntries([]);
+      } else if (entries.some((e) => e.size > 5_000_000)) {
+        setZipError("Одна из страниц в ZIP больше 5 МБ — это похоже на zip-bomb или повреждённый файл.");
+        setZipEntries([]);
       } else {
         setZipEntries(entries);
       }
-    } catch (e) {
+    } catch {
       setZipError("Не удалось прочитать ZIP. Проверьте, что это валидный архив.");
       setZipEntries([]);
     } finally {
@@ -361,6 +372,13 @@ export default function AppPage() {
     <main>
       <nav className="app-nav">
         <div className="app-nav-left">
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarOpen((v) => !v)}
+            aria-label="Открыть список страниц"
+          >
+            ☰
+          </button>
           <Link href="/" className="app-logo">
             tildra<span style={{ color: "var(--accent)", fontStyle: "normal" }}>/</span>
           </Link>
@@ -375,13 +393,18 @@ export default function AppPage() {
             ↺ Сброс демо
           </button>
           <button className="btn btn-primary" onClick={() => setShowConnect(true)}>
-            + Подключить страницу
+            + Подключить
           </button>
         </div>
       </nav>
 
+      <div
+        className={`sidebar-backdrop ${sidebarOpen ? "show" : ""}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       <div className="app-shell">
-        <aside className="sidebar">
+        <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
           <div className="sidebar-head">
             <span>// страницы · {pages.length}</span>
           </div>
@@ -397,7 +420,10 @@ export default function AppPage() {
                 <button
                   key={p.id}
                   className={`page-item ${p.id === selectedId ? "active" : ""}`}
-                  onClick={() => setSelectedId(p.id)}
+                  onClick={() => {
+                    setSelectedId(p.id);
+                    setSidebarOpen(false);
+                  }}
                 >
                   <div className="page-item-name">
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -566,7 +592,8 @@ export default function AppPage() {
                     className="preview-frame"
                     title="preview"
                     srcDoc={previewHtml}
-                    sandbox="allow-same-origin"
+                    sandbox=""
+                    referrerPolicy="no-referrer"
                   />
                 </div>
               </div>
